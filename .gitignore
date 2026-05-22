@@ -1,0 +1,22 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Build outputs (we don't have any, but future-proof)
+node_modules/
+dist/
+build/
+
+# Local secrets / env
+.env
+.env.local
+*.local
+
+# Design-tooling sidecar files that don't belong in the repo
+.design-canvas.state.json
+.review.json
+.scrap/
+scraps/

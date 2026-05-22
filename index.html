@@ -1,0 +1,1022 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>zoidev · ~/dev</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       v2 · Terminal / vibe coder
+       Treats the page like a live editor — file tabs, line numbers,
+       blinking carets and code-fenced sections. Same content as v1,
+       different theatre.
+       ============================================================ */
+    :root {
+      --bg:        #0b0d0c;
+      --bg-2:      #0f1211;
+      --bg-3:      #161a18;
+      --surface:   #1a1f1d;
+      --line:      rgba(0,255,136,0.10);
+      --line-2:    rgba(0,255,136,0.22);
+      --text:      #e6efe9;
+      --text-dim:  #7a8a82;
+      --text-mute: #4a5550;
+      --comment:   #4d5e57;
+      --accent:    #00ff88;
+      --accent-2:  #5bf2bd;
+      --punct:     #ff8a5b;
+      --string:    #f0d76a;
+
+      --sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+      --pad:   clamp(16px, 4vw, 56px);
+      --maxw:  1240px;
+      --ease:  cubic-bezier(.2,.7,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; background: var(--bg); }
+    body {
+      font-family: var(--mono);
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at 20% -10%, rgba(0,255,136,0.06), transparent 50%),
+        radial-gradient(ellipse at 90% 110%, rgba(0,255,136,0.04), transparent 50%),
+        var(--bg);
+      background-attachment: fixed;
+      font-size: 14.5px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Subtle grid texture */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,136,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+      mask-image: radial-gradient(ellipse at 50% 30%, rgba(0,0,0,0.4), transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 30%, rgba(0,0,0,0.4), transparent 80%);
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+    [data-anim] {
+      opacity: 0; transform: translateY(20px);
+      transition: opacity .8s var(--ease) var(--stagger, 0s),
+                  transform .8s var(--ease) var(--stagger, 0s);
+    }
+    [data-anim].in { opacity: 1; transform: none; }
+    [data-parallax] { transform: translateY(var(--py, 0px)); }
+
+    /* ============================================================
+       Top bar — looks like an editor tab strip
+       ============================================================ */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      padding: 0 var(--pad);
+      height: 56px;
+      display: flex; align-items: center; gap: 18px;
+      background: rgba(11,13,12,0.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+    }
+    .dots { display: flex; gap: 7px; margin-right: 4px; }
+    .dots span {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--bg-3);
+      border: 1px solid var(--line-2);
+    }
+    .dots span:nth-child(1) { background: #ff5f56; border-color: rgba(255,95,86,0.4); }
+    .dots span:nth-child(2) { background: #ffbd2e; border-color: rgba(255,189,46,0.4); }
+    .dots span:nth-child(3) { background: var(--accent); border-color: rgba(0,255,136,0.4); }
+    .brand {
+      display: flex; align-items: baseline; gap: 2px;
+      font-family: var(--mono);
+      font-weight: 600; font-size: 14px;
+      color: var(--text);
+    }
+    .brand .prompt { color: var(--accent); margin-right: 6px; }
+    .brand .slash, .brand .dot { color: var(--text-mute); font-weight: 400; }
+    .brand .caret {
+      display: inline-block; width: 7px; height: 14px;
+      background: var(--accent); margin-left: 2px;
+      animation: blink 1.1s steps(2, end) infinite;
+      vertical-align: -2px;
+    }
+    @keyframes blink { 0%,50% { opacity: 1 } 50.1%,100% { opacity: 0 } }
+
+    .tabs {
+      display: flex; gap: 0;
+      margin-left: 8px;
+      font-family: var(--mono); font-size: 12.5px;
+      color: var(--text-dim);
+      flex: 1;
+    }
+    .tabs a {
+      padding: 8px 14px;
+      border-right: 1px solid var(--line);
+      transition: background .15s var(--ease), color .15s var(--ease);
+      position: relative;
+    }
+    .tabs a:hover { color: var(--text); background: rgba(0,255,136,0.04); }
+    .tabs a.active { color: var(--text); background: var(--bg-2); }
+    .tabs a.active::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1.5px;
+      background: var(--accent);
+    }
+
+    .topbar-right { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+    .lang-toggle, .login-btn {
+      font-family: var(--mono); font-size: 12px;
+      color: var(--text-dim);
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
+    }
+    .lang-toggle:hover { color: var(--text); border-color: var(--line-2); }
+    .login-btn {
+      color: var(--accent);
+      border-color: var(--line-2);
+      background: rgba(0,255,136,0.04);
+    }
+    .login-btn:hover { background: rgba(0,255,136,0.12); border-color: var(--accent); }
+    .login-btn::before { content: '$ '; opacity: 0.6; }
+
+    .nav-burger {
+      display: none; width: 36px; height: 36px;
+      border: 1px solid var(--line); border-radius: 4px;
+      align-items: center; justify-content: center;
+    }
+    .nav-burger span {
+      width: 14px; height: 1.5px; background: currentColor;
+      box-shadow: 0 5px 0 currentColor, 0 -5px 0 currentColor;
+    }
+
+    /* ============================================================
+       Layout
+       ============================================================ */
+    main { padding: 0; position: relative; z-index: 1; }
+    section { padding: 100px var(--pad); position: relative; }
+    .wrap { max-width: var(--maxw); margin: 0 auto; }
+
+    /* Code-block frame applied to most sections */
+    .codeblock {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg-2);
+      padding: 48px;
+      overflow: hidden;
+    }
+    .codeblock::before {
+      content: attr(data-file);
+      position: absolute; top: 14px; left: 18px;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--comment);
+      letter-spacing: 0.04em;
+    }
+    .codeblock::after {
+      content: attr(data-stat);
+      position: absolute; top: 14px; right: 18px;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--comment);
+    }
+    .comment {
+      color: var(--comment);
+      font-family: var(--mono);
+      font-size: 13px;
+      margin: 0 0 16px;
+    }
+    .comment::before { content: '// '; }
+
+    /* ============================================================
+       Hero
+       ============================================================ */
+    .hero {
+      padding-top: 130px;
+      min-height: 100vh;
+      display: flex; align-items: center;
+      position: relative;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 0;
+      width: 100%;
+    }
+    .gutter {
+      display: flex; flex-direction: column;
+      align-items: flex-end;
+      padding-right: 24px;
+      font-family: var(--mono);
+      color: var(--text-mute);
+      font-size: 13px;
+      line-height: 1.7;
+      border-right: 1px solid var(--line);
+      user-select: none;
+    }
+    .gutter span { display: block; }
+    .gutter-current { color: var(--accent) !important; }
+    .hero-body { padding-left: 32px; }
+
+    .hero-tag {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 28px;
+    }
+    .hero-tag::before { content: '> '; color: var(--text-mute); }
+    .hero h1 {
+      font-family: var(--sans);
+      font-size: clamp(46px, 8vw, 120px);
+      line-height: 0.96;
+      letter-spacing: -0.035em;
+      font-weight: 600;
+      margin: 0;
+      text-wrap: balance;
+    }
+    .hero h1 .kw {
+      color: var(--accent);
+      font-style: normal;
+    }
+    .hero h1 .punct { color: var(--punct); }
+    .hero h1 .tail { color: var(--text-mute); }
+
+    .hero-sub {
+      max-width: 60ch;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 1.7;
+      margin: 36px 0 0;
+      padding: 16px 18px;
+      border-left: 2px solid var(--accent);
+      background: rgba(0,255,136,0.03);
+    }
+    .hero-sub::before {
+      content: '/** '; color: var(--accent);
+    }
+    .hero-sub::after {
+      content: ' */'; color: var(--accent);
+    }
+
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 40px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 12px 18px;
+      font-family: var(--mono); font-size: 13px; font-weight: 500;
+      border-radius: 4px;
+      transition: transform .15s var(--ease), background .15s var(--ease),
+                  border-color .15s var(--ease), color .15s var(--ease);
+    }
+    .btn.primary {
+      background: var(--accent);
+      color: var(--bg);
+      border: 1px solid var(--accent);
+    }
+    .btn.primary:hover { background: var(--accent-2); transform: translateY(-1px); }
+    .btn.primary::before { content: 'run '; opacity: 0.5; }
+    .btn.ghost {
+      color: var(--text);
+      border: 1px solid var(--line-2);
+    }
+    .btn.ghost:hover { background: rgba(0,255,136,0.06); border-color: var(--accent); }
+
+    .hero-meta {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 32px; margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px dashed var(--line);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .hero-meta .lbl { color: var(--comment); }
+    .hero-meta .lbl::before { content: '# '; }
+    .hero-meta strong { display: block; color: var(--text); font-weight: 500; font-size: 14px; margin-top: 4px; }
+    .hero-meta .live { color: var(--accent); }
+    .hero-meta .live::before {
+      content: '●'; margin-right: 6px; animation: blink 1.6s ease-in-out infinite;
+    }
+
+    /* ============================================================
+       Sections
+       ============================================================ */
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      text-transform: lowercase;
+      margin-bottom: 18px;
+    }
+    .eyebrow::before { content: '// '; color: var(--comment); }
+
+    .section-title {
+      font-family: var(--sans);
+      font-size: clamp(36px, 5vw, 64px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      font-weight: 600;
+      margin: 0 0 16px;
+      text-wrap: balance;
+    }
+    .section-title .kw { color: var(--accent); }
+    .section-sub {
+      font-family: var(--mono);
+      font-size: 14px; color: var(--text-dim);
+      max-width: 60ch; margin: 0;
+    }
+
+    /* ============================================================
+       Services — list of "function" rows
+       ============================================================ */
+    .svc-list { margin-top: 56px; }
+    .svc {
+      display: grid;
+      grid-template-columns: 60px 1fr 320px;
+      gap: 24px;
+      padding: 28px 0;
+      border-top: 1px dashed var(--line);
+      align-items: start;
+      position: relative;
+      transition: padding .25s var(--ease), background .2s var(--ease);
+    }
+    .svc:first-child { border-top: 1px solid var(--line-2); }
+    .svc:last-child { border-bottom: 1px solid var(--line-2); }
+    .svc:hover { background: rgba(0,255,136,0.02); padding-left: 16px; padding-right: 16px; }
+    .svc-no {
+      font-family: var(--mono); font-size: 12px;
+      color: var(--text-mute);
+      padding-top: 6px;
+    }
+    .svc-title {
+      font-family: var(--sans);
+      font-size: clamp(22px, 2.2vw, 28px);
+      letter-spacing: -0.02em;
+      font-weight: 600;
+      margin: 0;
+    }
+    .svc-title::before {
+      content: 'function '; color: var(--text-mute);
+      font-family: var(--mono); font-size: 13px; font-weight: 400;
+    }
+    .svc-title::after {
+      content: '()'; color: var(--punct);
+      font-family: var(--mono);
+    }
+    .svc-desc {
+      font-family: var(--mono); font-size: 13px;
+      color: var(--text-dim);
+      margin: 8px 0 0; line-height: 1.7;
+      max-width: 56ch;
+    }
+    .svc-tag {
+      font-family: var(--mono); font-size: 11.5px;
+      color: var(--comment);
+      padding-top: 8px;
+      text-align: right;
+    }
+    .svc-tag::before { content: '@ '; }
+
+    /* ============================================================
+       Process — three terminal cards
+       ============================================================ */
+    .process-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 56px;
+    }
+    .step {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px 22px 24px;
+      transition: border-color .2s var(--ease), transform .2s var(--ease);
+      position: relative;
+      overflow: hidden;
+    }
+    .step:hover { border-color: var(--line-2); transform: translateY(-2px); }
+    .step-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 1px dashed var(--line);
+      margin-bottom: 16px;
+      font-family: var(--mono); font-size: 12px;
+      color: var(--comment);
+    }
+    .step-head .num { color: var(--accent); font-weight: 600; }
+    .step-title {
+      font-family: var(--sans);
+      font-size: 22px; font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+    .step-desc {
+      font-family: var(--mono); font-size: 13px;
+      color: var(--text-dim); line-height: 1.7;
+      margin: 0;
+    }
+
+    /* ============================================================
+       Stack — tag pills
+       ============================================================ */
+    .stack-grid {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 48px;
+    }
+    .stack-tag {
+      font-family: var(--mono); font-size: 13px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--bg-2);
+      color: var(--text);
+      transition: border-color .15s var(--ease), background .15s var(--ease), transform .15s var(--ease);
+      display: inline-flex; align-items: baseline; gap: 8px;
+    }
+    .stack-tag:hover { border-color: var(--accent); transform: translateY(-1px); background: var(--surface); }
+    .stack-tag .role { color: var(--comment); font-size: 11px; }
+
+    /* ============================================================
+       Contact — looks like a curl command
+       ============================================================ */
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 56px;
+      margin-top: 48px;
+      align-items: start;
+    }
+    .contact-grid h2 {
+      font-family: var(--sans);
+      font-size: clamp(48px, 7vw, 96px);
+      letter-spacing: -0.035em;
+      line-height: 0.98;
+      margin: 0 0 18px;
+      font-weight: 600;
+    }
+    .contact-grid h2 .kw { color: var(--accent); }
+    .contact-grid h2 .punct { color: var(--punct); }
+    .contact-sub {
+      font-family: var(--mono); font-size: 14px;
+      color: var(--text-dim); max-width: 48ch;
+    }
+    .curl-card {
+      background: #06080a;
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      padding: 0;
+      font-family: var(--mono); font-size: 13px;
+      overflow: hidden;
+    }
+    .curl-head {
+      background: var(--bg-3);
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex; justify-content: space-between;
+      color: var(--comment); font-size: 11px;
+    }
+    .curl-body { padding: 22px 24px; line-height: 1.85; }
+    .curl-body .cmd { color: var(--accent); }
+    .curl-body .flag { color: var(--punct); }
+    .curl-body .str { color: var(--string); }
+    .curl-body .key { color: var(--text); }
+    .curl-body .val { color: var(--accent-2); }
+    .curl-body .com { color: var(--comment); }
+    .curl-body p { margin: 0; }
+    .curl-cta {
+      display: flex; gap: 10px;
+      padding: 14px 20px;
+      background: var(--bg-2);
+      border-top: 1px solid var(--line);
+    }
+
+    /* ============================================================
+       Footer
+       ============================================================ */
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 24px var(--pad);
+      display: flex; justify-content: space-between;
+      font-family: var(--mono); font-size: 12px;
+      color: var(--text-mute);
+    }
+    footer .prompt { color: var(--accent); margin-right: 8px; }
+
+    /* ============================================================
+       Modals (login + dashboard)
+       ============================================================ */
+    .zoi-modal {
+      position: fixed; inset: 0; z-index: 100;
+      display: none; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .zoi-modal.open { display: flex; animation: modalIn .25s var(--ease); }
+    .zoi-modal__bg {
+      position: absolute; inset: 0;
+      background: rgba(4,8,6,0.82);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    @keyframes modalIn { from { opacity: 0 } to { opacity: 1 } }
+    .zoi-modal__panel {
+      position: relative;
+      background: var(--bg-2);
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      width: 100%; max-width: 480px;
+      padding: 0;
+      overflow: hidden;
+      animation: panelIn .35s var(--ease);
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
+    }
+    .zoi-modal--wide .zoi-modal__panel { max-width: 740px; }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(20px) scale(.98); }
+      to { opacity: 1; transform: none; }
+    }
+    .zoi-modal__head {
+      background: var(--bg-3);
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--mono); font-size: 12px;
+      color: var(--comment);
+    }
+    .zoi-modal__head .dots { display: flex; gap: 6px; }
+    .zoi-modal__head .dots span { width: 10px; height: 10px; border-radius: 50%; }
+    .zoi-modal__head .dots span:nth-child(1) { background: #ff5f56; }
+    .zoi-modal__head .dots span:nth-child(2) { background: #ffbd2e; }
+    .zoi-modal__head .dots span:nth-child(3) { background: var(--accent); }
+    .zoi-modal__close {
+      margin-left: auto;
+      width: 28px; height: 28px;
+      color: var(--text-dim);
+      border-radius: 4px;
+      transition: background .15s var(--ease), color .15s var(--ease);
+    }
+    .zoi-modal__close:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+    .zoi-modal__body { padding: 28px 32px 32px; }
+
+    .zoi-modal__eyebrow {
+      font-family: var(--mono); font-size: 11px;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+    .zoi-modal__eyebrow::before { content: '# '; color: var(--comment); }
+    .zoi-modal__title {
+      font-family: var(--sans);
+      font-size: 26px; font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+    }
+    .zoi-modal__sub {
+      font-family: var(--mono); font-size: 13px;
+      color: var(--text-dim);
+      margin: 0 0 24px; max-width: 56ch;
+    }
+
+    /* Login form */
+    .zoi-form { display: flex; flex-direction: column; gap: 14px; }
+    .zoi-field { display: flex; flex-direction: column; gap: 6px; }
+    .zoi-field label {
+      font-family: var(--mono); font-size: 11px;
+      color: var(--comment);
+    }
+    .zoi-field label::before { content: '$ '; color: var(--accent); }
+    .zoi-field input {
+      background: #06080a;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: var(--mono); font-size: 14px;
+      transition: border-color .15s var(--ease);
+    }
+    .zoi-field input:focus { outline: none; border-color: var(--accent); }
+    .zoi-form .btn { margin-top: 8px; justify-content: center; width: 100%; }
+    .oauth-divider {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--comment);
+      text-transform: uppercase; letter-spacing: 0.1em;
+      margin: 6px 0 2px;
+    }
+    .oauth-divider::before, .oauth-divider::after {
+      content: ''; flex: 1; height: 1px;
+      background: var(--line);
+    }
+    .btn.oauth {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line-2);
+      width: 100%;
+      justify-content: center;
+    }
+    .btn.oauth::before { content: none; }
+    .btn.oauth:hover {
+      background: rgba(0,255,136,0.04);
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .oauth-icon { flex-shrink: 0; }
+    .zoi-help {
+      font-family: var(--mono); font-size: 11.5px;
+      color: var(--comment);
+      text-align: center;
+      margin: 8px 0 0;
+      line-height: 1.5;
+    }
+    .zoi-help::before { content: '// '; color: var(--text-mute); }
+
+    /* Dashboard */
+    .zoi-svc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin: 12px 0 8px;
+    }
+    .zoi-svc {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto auto;
+      align-items: center;
+      gap: 4px 12px;
+      padding: 14px 16px;
+      background: #06080a;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      transition: border-color .15s var(--ease), transform .15s var(--ease);
+      animation: svcIn .35s var(--ease) backwards;
+      animation-delay: calc(var(--i) * 0.04s);
+    }
+    @keyframes svcIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .zoi-svc:hover { border-color: var(--accent); }
+    .zoi-svc-dot {
+      grid-row: 1 / 3;
+      width: 9px; height: 9px; border-radius: 50%;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .zoi-svc-body { display: contents; }
+    .zoi-svc-name {
+      grid-column: 2; grid-row: 1;
+      font-family: var(--sans); font-weight: 600; font-size: 14.5px;
+    }
+    .zoi-svc-desc {
+      display: none;
+    }
+    .zoi-svc-url {
+      grid-column: 2; grid-row: 2;
+      font-family: var(--mono); font-size: 11.5px;
+      color: var(--comment);
+    }
+    .zoi-svc-url::before { content: '→ '; color: var(--text-mute); }
+    .zoi-svc-arrow {
+      grid-column: 3; grid-row: 1 / 3;
+      color: var(--text-mute);
+      transition: color .15s var(--ease), transform .15s var(--ease);
+    }
+    .zoi-svc:hover .zoi-svc-arrow { color: var(--accent); transform: translate(2px, -2px); }
+
+    .zoi-modal__footer {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 22px; padding-top: 18px;
+      border-top: 1px dashed var(--line);
+      gap: 12px;
+    }
+    .zoi-modal__footer button {
+      font-family: var(--mono); font-size: 12px;
+      color: var(--text-dim);
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      transition: color .15s var(--ease), border-color .15s var(--ease);
+    }
+    .zoi-modal__footer button:hover { color: var(--text); border-color: var(--line-2); }
+    .zoi-modal__footer .logout { color: var(--punct); border-color: rgba(255,138,91,0.3); }
+    .zoi-modal__footer .logout:hover { border-color: var(--punct); }
+
+    /* ============================================================
+       Responsive
+       ============================================================ */
+    @media (max-width: 900px) {
+      section { padding: 70px var(--pad); }
+      .hero { padding-top: 100px; min-height: auto; }
+      .hero-grid { grid-template-columns: 30px 1fr; }
+      .gutter { padding-right: 12px; font-size: 11px; }
+      .hero-body { padding-left: 16px; }
+      .hero-meta { grid-template-columns: 1fr 1fr; }
+      .tabs { display: none; }
+      .nav-burger { display: flex; }
+      body.nav-open .tabs {
+        display: flex; position: fixed; inset: 56px 0 0 0;
+        flex-direction: column; padding: 16px var(--pad);
+        background: var(--bg); z-index: 49; gap: 0;
+      }
+      body.nav-open .tabs a { border-right: 0; border-bottom: 1px solid var(--line); padding: 14px 0; }
+
+      .svc { grid-template-columns: 40px 1fr; }
+      .svc-tag { grid-column: 2; text-align: left; padding-top: 0; }
+      .svc:hover { padding-left: 0; padding-right: 0; }
+      .process-grid { grid-template-columns: 1fr; }
+      .contact-grid { grid-template-columns: 1fr; gap: 32px; }
+      .codeblock { padding: 32px 20px; }
+      .zoi-svc-grid { grid-template-columns: 1fr; }
+    }
+
+    ::selection { background: var(--accent); color: var(--bg); }
+  </style>
+</head>
+<body>
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+    <a href="#top" class="brand">
+      <span class="prompt">~</span><span>zoi</span><span class="slash">.</span><span>dev</span><span class="caret"></span>
+    </a>
+    <nav class="tabs" aria-label="Primary">
+      <a href="#services" data-nav-close data-i18n="nav_services">Servicios</a>
+      <a href="#process" data-nav-close data-i18n="nav_process">Proceso</a>
+      <a href="#stack" data-nav-close data-i18n="nav_stack">Stack</a>
+      <a href="#contact" data-nav-close data-i18n="nav_contact">Contacto</a>
+    </nav>
+    <div class="topbar-right">
+      <button class="lang-toggle" data-action="toggle-lang" data-i18n="lang_other">EN</button>
+      <a href="#" class="login-btn" data-action="login" data-i18n="nav_login">Acceder</a>
+    </div>
+    <button class="nav-burger" data-action="nav-toggle" aria-label="Menu"><span></span></button>
+  </header>
+
+  <main id="top">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero" data-screen-label="01 Hero">
+      <div class="wrap">
+        <div class="hero-grid">
+          <div class="gutter" aria-hidden="true">
+            <span>1</span><span>2</span><span>3</span>
+            <span class="gutter-current">4</span>
+            <span>5</span><span>6</span><span>7</span><span>8</span>
+            <span>9</span><span>10</span><span>11</span><span>12</span>
+            <span>13</span><span>14</span><span>15</span><span>16</span>
+          </div>
+          <div class="hero-body">
+            <div class="hero-tag" data-anim data-i18n="hero_eyebrow">01 · qué es zoi</div>
+            <h1 data-anim>
+              <span data-i18n="hero_title_1">Software que pesa</span>
+              <span class="kw" data-i18n="hero_title_2">lo justo.</span>
+              <span class="tail" data-i18n="hero_title_3">Ni una línea de más.</span>
+            </h1>
+            <p class="hero-sub" data-anim data-i18n="hero_sub">Desarrollo a medida e ingeniería inversa para gente que sólo necesita que algo funcione. Sin frameworks de moda, sin sprints eternos, sin discursos.</p>
+            <div class="cta-row" data-anim>
+              <a class="btn primary" href="#contact" data-i18n="hero_cta_primary">Tengo un proyecto</a>
+              <a class="btn ghost" href="#process" data-i18n="hero_cta_secondary">Cómo trabajo →</a>
+            </div>
+            <div class="hero-meta" data-anim>
+              <div>
+                <span class="lbl">location</span>
+                <strong data-i18n="hero_meta_loc">Madrid · remoto</strong>
+              </div>
+              <div>
+                <span class="lbl">status</span>
+                <strong class="live" data-i18n="hero_meta_status">Disponible</strong>
+              </div>
+              <div>
+                <span class="lbl">uptime</span>
+                <strong>since 2018</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SERVICES ============ -->
+    <section id="services" data-screen-label="02 Servicios">
+      <div class="wrap">
+        <div class="codeblock" data-file="// services.ts" data-stat="● 5 exports">
+          <div class="eyebrow" data-i18n="services_eyebrow">02 · servicios</div>
+          <h2 class="section-title" data-anim>
+            <span data-i18n="services_title">Cinco cosas. Bien hechas.</span>
+          </h2>
+          <p class="section-sub" data-anim data-i18n="services_sub">No mil cosas a medias.</p>
+
+          <div class="svc-list" data-anim data-stagger="0.05">
+            <article class="svc">
+              <div class="svc-no">01</div>
+              <div>
+                <h3 class="svc-title" data-i18n="s1_t">vibeCoding</h3>
+                <p class="svc-desc" data-i18n="s1_d">Te sientas a mi lado, abrimos el editor y construimos. Funcionalidad real en horas, no en sprints.</p>
+              </div>
+              <div class="svc-tag" data-i18n="s1_tag">live</div>
+            </article>
+            <article class="svc">
+              <div class="svc-no">02</div>
+              <div>
+                <h3 class="svc-title" data-i18n="s2_t">reverseEngineering</h3>
+                <p class="svc-desc" data-i18n="s2_d">Binarios, APIs sin documentar, formatos cerrados, sistemas legacy. Si arranca, lo entendemos. Si no, lo arreglamos.</p>
+              </div>
+              <div class="svc-tag" data-i18n="s2_tag">binaries · apis · legacy</div>
+            </article>
+            <article class="svc">
+              <div class="svc-no">03</div>
+              <div>
+                <h3 class="svc-title" data-i18n="s3_t">mobileApps</h3>
+                <p class="svc-desc" data-i18n="s3_d">iOS y Android nativos, o cross-platform cuando tiene sentido. Nada de Electron disfrazado.</p>
+              </div>
+              <div class="svc-tag" data-i18n="s3_tag">ios · android</div>
+            </article>
+            <article class="svc">
+              <div class="svc-no">04</div>
+              <div>
+                <h3 class="svc-title" data-i18n="s4_t">webAndSaaS</h3>
+                <p class="svc-desc" data-i18n="s4_d">Del MVP a producción. Stack moderno y deploy en tu propio servidor si quieres dormir tranquilo.</p>
+              </div>
+              <div class="svc-tag" data-i18n="s4_tag">mvp · prod</div>
+            </article>
+            <article class="svc">
+              <div class="svc-no">05</div>
+              <div>
+                <h3 class="svc-title" data-i18n="s5_t">automation</h3>
+                <p class="svc-desc" data-i18n="s5_d">Scripts, agentes y pipelines. Todo lo que haces dos veces, lo hace una máquina la tercera.</p>
+              </div>
+              <div class="svc-tag" data-i18n="s5_tag">scripts · agents</div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PROCESS ============ -->
+    <section id="process" data-screen-label="03 Proceso">
+      <div class="wrap">
+        <div class="codeblock" data-file="// process.md" data-stat="● 3 steps">
+          <div class="eyebrow" data-i18n="process_eyebrow">03 · proceso</div>
+          <h2 class="section-title" data-anim data-i18n="process_title">Sin sales calls.</h2>
+          <p class="section-sub" data-anim data-i18n="process_sub">Sin propuestas de 40 páginas. Sin retainers de seis meses.</p>
+
+          <div class="process-grid" data-anim data-stagger="0.08">
+            <div class="step">
+              <div class="step-head"><span class="num" data-i18n="p1_n">01</span><span>step.talk</span></div>
+              <h3 class="step-title" data-i18n="p1_t">Hablamos</h3>
+              <p class="step-desc" data-i18n="p1_d">Email o videollamada de 20 minutos. Me cuentas qué necesitas y te digo si puedo, en cuánto y a qué precio.</p>
+            </div>
+            <div class="step">
+              <div class="step-head"><span class="num" data-i18n="p2_n">02</span><span>step.build</span></div>
+              <h3 class="step-title" data-i18n="p2_t">Construyo</h3>
+              <p class="step-desc" data-i18n="p2_d">Iteración corta, commits diarios, demo cada pocos días. Si algo no encaja, lo cambiamos antes de gastar dos semanas.</p>
+            </div>
+            <div class="step">
+              <div class="step-head"><span class="num" data-i18n="p3_n">03</span><span>step.ship</span></div>
+              <h3 class="step-title" data-i18n="p3_t">Entrego</h3>
+              <p class="step-desc" data-i18n="p3_d">Código, documentación y despliegue. Tres meses de soporte para que no te quedes solo al día siguiente.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ STACK ============ -->
+    <section id="stack" data-screen-label="04 Stack">
+      <div class="wrap">
+        <div class="codeblock" data-file="// package.json" data-stat="● 16 deps">
+          <div class="eyebrow" data-i18n="stack_eyebrow">04 · stack</div>
+          <h2 class="section-title" data-anim data-i18n="stack_title">Con qué construyo</h2>
+          <p class="section-sub" data-anim data-i18n="stack_sub">Herramientas aburridas que llevan años funcionando. Y unas pocas nuevas que se han ganado el sitio.</p>
+
+          <div class="stack-grid" data-anim data-stagger="0.02">
+            <span class="stack-tag">TypeScript <span class="role">core</span></span>
+            <span class="stack-tag">Python <span class="role">re · scripts</span></span>
+            <span class="stack-tag">Go <span class="role">services</span></span>
+            <span class="stack-tag">Rust <span class="role">critical</span></span>
+            <span class="stack-tag">Swift <span class="role">ios</span></span>
+            <span class="stack-tag">Kotlin <span class="role">android</span></span>
+            <span class="stack-tag">React <span class="role">web</span></span>
+            <span class="stack-tag">SvelteKit <span class="role">light</span></span>
+            <span class="stack-tag">Postgres <span class="role">data</span></span>
+            <span class="stack-tag">SQLite <span class="role">embedded</span></span>
+            <span class="stack-tag">Docker <span class="role">deploy</span></span>
+            <span class="stack-tag">Pangolin <span class="role">auth · proxy</span></span>
+            <span class="stack-tag">Ghidra / IDA <span class="role">reversing</span></span>
+            <span class="stack-tag">Wireshark <span class="role">protos</span></span>
+            <span class="stack-tag">Frida <span class="role">hooks</span></span>
+            <span class="stack-tag">Claude · GPT <span class="role">copilots</span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CONTACT ============ -->
+    <section id="contact" data-screen-label="05 Contacto">
+      <div class="wrap">
+        <div class="eyebrow" data-i18n="contact_eyebrow">05 · contacto</div>
+        <div class="contact-grid">
+          <div data-anim>
+            <h2>
+              <span data-i18n="contact_title">Cuéntame algo.</span>
+            </h2>
+            <p class="contact-sub" data-i18n="contact_sub">Si tu correo describe un problema concreto, te respondo. Casi siempre el mismo día.</p>
+          </div>
+          <div class="curl-card" data-anim>
+            <div class="curl-head">
+              <span>POST /hello</span>
+              <span>200 OK</span>
+            </div>
+            <div class="curl-body">
+              <p><span class="cmd">curl</span> <span class="flag">-X</span> <span class="str">POST</span> <span class="str">"https://zoidev.com/hello"</span> \</p>
+              <p>&nbsp;&nbsp;<span class="flag">-H</span> <span class="str">"From: pablonie@gmail.com"</span> \</p>
+              <p>&nbsp;&nbsp;<span class="flag">-d</span> <span class="str">'&#123;</span></p>
+              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="val">"Pablo Nieto"</span>,</p>
+              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"role"</span>: <span class="val">"dev &amp; reverse engineering"</span>,</p>
+              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"base"</span>: <span class="val">"Madrid, ES"</span>,</p>
+              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"reply"</span>: <span class="val">"&lt;= 24h"</span></p>
+              <p>&nbsp;&nbsp;<span class="str">&#125;'</span></p>
+            </div>
+            <div class="curl-cta">
+              <a class="btn primary" href="mailto:pablonie@gmail.com?subject=Proyecto%20zoidev" data-i18n="contact_cta">Escribir un email →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <span><span class="prompt">$</span><span data-i18n="footer_left">© 2026 zoidev · cero overhead</span></span>
+    <a href="mailto:pablonie@gmail.com" data-i18n="footer_right">pablonie@gmail.com</a>
+  </footer>
+
+  <!-- ============ LOGIN MODAL ============ -->
+  <div class="zoi-modal" id="zoi-login" role="dialog" aria-modal="true">
+    <div class="zoi-modal__bg" aria-hidden="true"></div>
+    <div class="zoi-modal__panel">
+      <div class="zoi-modal__head">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <span>auth.zoidev.com · pangolin</span>
+        <button class="zoi-modal__close" data-action="close-modal" aria-label="Close">×</button>
+      </div>
+      <div class="zoi-modal__body">
+        <div class="zoi-modal__eyebrow" data-i18n="login_eyebrow">autenticación</div>
+        <h3 class="zoi-modal__title" data-i18n="login_title">Panel privado</h3>
+        <div class="zoi-form">
+          <button type="button" class="btn primary" data-action="login-submit" data-i18n="login_continue">Continuar →</button>
+          <div class="oauth-divider"><span data-i18n="login_or">o</span></div>
+          <button type="button" class="btn oauth" data-action="login-pocketid">
+            <svg class="oauth-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              <circle cx="12" cy="16.5" r="1.5" fill="currentColor"/>
+            </svg>
+            <span data-i18n="login_pocketid">Continuar con Pocket ID</span>
+          </button>
+          <p class="zoi-help" data-i18n="login_help">Te llevamos a Pangolin para iniciar sesión.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DASHBOARD MODAL ============ -->
+  <div class="zoi-modal zoi-modal--wide" id="zoi-dashboard" role="dialog" aria-modal="true">
+    <div class="zoi-modal__bg" aria-hidden="true"></div>
+    <div class="zoi-modal__panel">
+      <div class="zoi-modal__head">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <span>~/zoidev/services</span>
+        <button class="zoi-modal__close" data-action="close-modal" aria-label="Close">×</button>
+      </div>
+      <div class="zoi-modal__body">
+        <div class="zoi-modal__eyebrow" data-i18n="dash_eyebrow">sesión activa</div>
+        <h3 class="zoi-modal__title" data-i18n="dash_title">Tus servicios</h3>
+        <p class="zoi-modal__sub" data-i18n="dash_sub">Cookie compartida en *.zoidev.com · acceso directo, sin volver a loguearte.</p>
+
+        <div class="zoi-svc-grid" id="zoi-services-grid"></div>
+
+        <div class="zoi-modal__footer">
+          <button data-action="close-modal" data-i18n="dash_close">Cerrar</button>
+          <button class="logout" data-action="logout" data-i18n="dash_logout">Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="shared/zoi.js"></script>
+</body>
+</html>

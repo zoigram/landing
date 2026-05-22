@@ -1,0 +1,23 @@
+# docker-compose for the VPS. Builds the image straight from GitHub —
+# no /opt/zoidev mounts, no node, no .env. To update after a push:
+#
+#   docker compose -f /opt/zoidev/docker-compose.yml build --no-cache
+#   docker compose -f /opt/zoidev/docker-compose.yml up -d
+
+version: "3.8"
+
+services:
+  zoidev-app:
+    build:
+      context: https://github.com/zoigram/landing.git#main
+    image: zoidev-landing:latest
+    container_name: zoidev-app
+    restart: always
+    # Pangolin's reverse proxy reaches us by container name on this network.
+    # Configure the resource in Pangolin to point at  http://zoidev-app:80
+    networks:
+      - pangolin
+
+networks:
+  pangolin:
+    external: true
