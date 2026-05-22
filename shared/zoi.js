@@ -15,17 +15,11 @@
 (function () {
   // ---------- Configuration ----------
   const CONFIG = Object.assign({
-    // Pangolin's own domain — its login UI, cookie issuer, and OIDC initiator
-    // all live here. Override via window.ZOIDEV_CONFIG if your Pangolin lives
-    // elsewhere. Users / Pocket-ID IDP are configured INSIDE Pangolin's admin
-    // panel — never in this codebase.
-    authUrl:        'https://pangolin.zoidev.com',
-    authLoginPath:  '/auth/login',
-    authLogoutPath: '/auth/logout',
-    // Optional: deep-link straight to the Pocket-ID OIDC initiator so the
-    // user skips Pangolin's method-picker. The actual `idp` slug depends on
-    // what you named the provider in Pangolin → Settings → Identity Providers.
-    pocketIdLoginUrl: 'https://pangolin.zoidev.com/auth/idp/pocket-id/oidc/login',
+    // Pangolin IDP login URL — when configured, the "Acceder" button
+    // deep-links here. Pangolin starts the OIDC flow against Pocket ID,
+    // returns the user to `redirect_url` once the cookie is set.
+    loginUrl:  'https://pangolin.zoidev.com/auth/idp/1/oidc/login',
+    logoutUrl: 'https://pangolin.zoidev.com/auth/logout',
     services: [
       { id: 'portainer', name: 'Portainer', url: 'https://portainer.zoidev.com', dot: '#13bef9',
         desc: { es: 'Contenedores Docker',           en: 'Docker containers' } },
@@ -111,16 +105,15 @@
       // Login modal
       login_eyebrow: 'autenticación',
       login_title: 'Panel privado',
-      login_continue: 'Continuar →',
-      login_pocketid: 'Continuar con Pocket ID',
-      login_or: 'o',
-      login_help: 'Inicia sesión para acceder a tus servicios.',
+      login_continue: 'Acceder con Pocket ID',
+      login_help: 'Autenticación con passkey. Tu identidad nunca pasa por aquí.',
+      login_unconfigured: 'Pocket ID aún no está configurado.',
       login_cancel: 'Cerrar',
 
       // Dashboard
       dash_eyebrow: 'sesión activa',
       dash_title: 'Tus servicios',
-      dash_sub: 'Cookie compartida en *.zoidev.com · acceso directo, sin volver a loguearte.',
+      dash_sub: 'Acceso directo a tu infraestructura.',
       dash_logout: 'Cerrar sesión',
       dash_close: 'Cerrar',
     },
@@ -186,15 +179,14 @@
 
       login_eyebrow: 'authentication',
       login_title: 'Private panel',
-      login_continue: 'Continue →',
-      login_pocketid: 'Continue with Pocket ID',
-      login_or: 'or',
-      login_help: 'Sign in to access your services.',
+      login_continue: 'Sign in with Pocket ID',
+      login_help: 'Passkey-based auth. Your identity never passes through here.',
+      login_unconfigured: 'Pocket ID is not configured yet.',
       login_cancel: 'Close',
 
       dash_eyebrow: 'active session',
       dash_title: 'Your services',
-      dash_sub: 'Shared cookie on *.zoidev.com · direct access, no re-login.',
+      dash_sub: 'Direct access to your infrastructure.',
       dash_logout: 'Sign out',
       dash_close: 'Close',
     }
@@ -306,27 +298,25 @@
       openDashboard();
       return;
     }
-    const back = location.origin + location.pathname + '?logged_in=1';
-    location.href = CONFIG.authUrl + CONFIG.authLoginPath
-      + '?redirect_url=' + encodeURIComponent(back);
-  }
-  function doLoginPocketId() {
-    if (CONFIG.demoMode) {
-      sessionStorage.setItem('zoidev:logged', '1');
-      closeLogin();
-      openDashboard();
+    if (!CONFIG.loginUrl) {
+      // No URL set yet — surface a friendly inline note instead of a 404.
+      const helpEl = document.querySelector('#zoi-login .zoi-help');
+      const dict = S[getLang()];
+      if (helpEl) {
+        helpEl.textContent = dict.login_unconfigured;
+        helpEl.style.color = '#ff8a5b';
+      }
       return;
     }
     const back = location.origin + location.pathname + '?logged_in=1';
-    const url  = CONFIG.pocketIdLoginUrl;
-    const sep  = url.indexOf('?') === -1 ? '?' : '&';
-    location.href = url + sep + 'redirect_url=' + encodeURIComponent(back);
+    const sep  = CONFIG.loginUrl.indexOf('?') === -1 ? '?' : '&';
+    location.href = CONFIG.loginUrl + sep + 'redirect_url=' + encodeURIComponent(back);
   }
   function doLogout() {
     sessionStorage.removeItem('zoidev:logged');
     closeDashboard();
-    if (!CONFIG.demoMode) {
-      location.href = CONFIG.authUrl + CONFIG.authLogoutPath
+    if (!CONFIG.demoMode && CONFIG.logoutUrl) {
+      location.href = CONFIG.logoutUrl
         + '?redirect_url=' + encodeURIComponent(location.origin + location.pathname);
     }
   }
@@ -376,9 +366,6 @@
 
     document.querySelectorAll('form[data-action="login-form"]').forEach(f =>
       f.addEventListener('submit', (e) => { e.preventDefault(); doLogin(); }));
-
-    document.querySelectorAll('[data-action="login-pocketid"]').forEach(b =>
-      b.addEventListener('click', (e) => { e.preventDefault(); doLoginPocketId(); }));
 
     // Dev/local convenience: long-press the title to enter demo mode.
     // Hidden from real visitors; useful while iterating.
