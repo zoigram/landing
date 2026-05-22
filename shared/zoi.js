@@ -114,7 +114,7 @@
       login_continue: 'Continuar →',
       login_pocketid: 'Continuar con Pocket ID',
       login_or: 'o',
-      login_help: 'Te llevamos a Pangolin para iniciar sesión.',
+      login_help: 'Inicia sesión para acceder a tus servicios.',
       login_cancel: 'Cerrar',
 
       // Dashboard
@@ -189,7 +189,7 @@
       login_continue: 'Continue →',
       login_pocketid: 'Continue with Pocket ID',
       login_or: 'or',
-      login_help: 'We send you to Pangolin to sign in.',
+      login_help: 'Sign in to access your services.',
       login_cancel: 'Close',
 
       dash_eyebrow: 'active session',
