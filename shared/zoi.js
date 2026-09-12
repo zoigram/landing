@@ -93,14 +93,26 @@
 
       contact_eyebrow: '05 · contacto',
       contact_title: 'Cuéntame algo.',
-      contact_sub: 'Si tu correo describe un problema concreto, te respondo. Casi siempre el mismo día.',
+      contact_sub: 'Cuéntame el problema y te respondo. Casi siempre el mismo día.',
       contact_name: 'Pablo Nieto',
       contact_role: 'Desarrollo & reverse engineering',
       contact_loc: 'Madrid, España',
-      contact_cta: 'Escribir un email →',
+      contact_cta: 'Enviar mensaje →',
+      contact_cta_mail: 'o email directo',
+      contact_ph_name: 'Tu nombre',
+      contact_ph_email: 'tu@correo.com',
+      contact_ph_msg: 'Cuéntame qué necesitas',
+      contact_status_idle: 'listo',
+      contact_status_sending: 'enviando…',
+      contact_status_ok: '200 OK',
+      contact_status_err: 'error',
+      contact_msg_ok: '✓ Mensaje enviado. Te contesto en cuanto pueda.',
+      contact_msg_err_fields: '⚠ Revisa el correo y el mensaje.',
+      contact_msg_err_rate: '⚠ Demasiados mensajes seguidos. Prueba de nuevo en unos minutos.',
+      contact_msg_err_generic: '⚠ Algo falló. Escríbeme directo a contacto@zoidev.com.',
 
       footer_left: '© 2026 zoidev · cero overhead',
-      footer_right: 'pablonie@gmail.com',
+      footer_right: 'contacto@zoidev.com',
 
       // Login modal
       login_eyebrow: 'autenticación',
@@ -168,14 +180,26 @@
 
       contact_eyebrow: '05 · contact',
       contact_title: 'Tell me something.',
-      contact_sub: 'If your email describes an actual problem, I’ll reply. Usually same day.',
+      contact_sub: 'Describe the problem and I’ll reply. Usually same day.',
       contact_name: 'Pablo Nieto',
       contact_role: 'Development & reverse engineering',
       contact_loc: 'Madrid, Spain',
-      contact_cta: 'Send an email →',
+      contact_cta: 'Send message →',
+      contact_cta_mail: 'or email directly',
+      contact_ph_name: 'Your name',
+      contact_ph_email: 'you@email.com',
+      contact_ph_msg: 'Tell me what you need',
+      contact_status_idle: 'ready',
+      contact_status_sending: 'sending…',
+      contact_status_ok: '200 OK',
+      contact_status_err: 'error',
+      contact_msg_ok: '✓ Message sent. I’ll reply as soon as I can.',
+      contact_msg_err_fields: '⚠ Check the email and the message.',
+      contact_msg_err_rate: '⚠ Too many messages in a row. Try again in a few minutes.',
+      contact_msg_err_generic: '⚠ Something failed. Email me directly at contacto@zoidev.com.',
 
       footer_left: '© 2026 zoidev · zero overhead',
-      footer_right: 'pablonie@gmail.com',
+      footer_right: 'contacto@zoidev.com',
 
       login_eyebrow: 'authentication',
       login_title: 'Private panel',
@@ -284,6 +308,176 @@
     };
     window.addEventListener('scroll', () => { if (!raf2) raf2 = requestAnimationFrame(setProg); }, { passive: true });
     setProg();
+  }
+
+  // ---------- Ambient particle-network backdrop ----------
+  function initBgCanvas() {
+    const canvas = document.getElementById('zoi-bg');
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    const reduceMotion = window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let w = 0, h = 0, dpr = 1, particles = [], raf = 0;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = canvas.width = innerWidth * dpr;
+      h = canvas.height = innerHeight * dpr;
+      canvas.style.width = innerWidth + 'px';
+      canvas.style.height = innerHeight + 'px';
+      const count = Math.min(Math.round((innerWidth * innerHeight) / 24000), 90);
+      particles = Array.from({ length: count }, () => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.25 * dpr,
+        vy: (Math.random() - 0.5) * 0.25 * dpr,
+      }));
+    }
+
+    function frame() {
+      ctx.clearRect(0, 0, w, h);
+      const linkDist = 130 * dpr;
+      particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+      });
+      ctx.fillStyle = 'rgba(0,255,136,0.55)';
+      particles.forEach(p => {
+        ctx.beginPath(); ctx.arc(p.x, p.y, 1.4 * dpr, 0, Math.PI * 2); ctx.fill();
+      });
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i], b = particles[j];
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < linkDist) {
+            ctx.strokeStyle = `rgba(0,255,136,${(0.14 * (1 - dist / linkDist)).toFixed(3)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function tick() {
+      if (!document.hidden) frame();
+      raf = requestAnimationFrame(tick);
+    }
+
+    resize();
+    if (reduceMotion) {
+      frame(); // single static frame, no loop
+    } else {
+      raf = requestAnimationFrame(tick);
+    }
+
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resize, 200);
+    });
+  }
+
+  // ---------- Hero "live terminal" typing effect (decorative) ----------
+  function initHeroTyper() {
+    const el = document.getElementById('hero-typer');
+    if (!el) return;
+    const lines = [
+      '$ zoi ship --prod',
+      '✓ build    1.2s',
+      '✓ tests    38 passed',
+      '✓ deploy   → zoidev.com',
+      '',
+      '$ _',
+    ];
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.textContent = lines.join('\n');
+      return;
+    }
+    let li = 0, ci = 0, timer = 0;
+    function step() {
+      if (li >= lines.length) {
+        timer = setTimeout(() => { li = 0; ci = 0; el.textContent = ''; step(); }, 3200);
+        return;
+      }
+      const line = lines[li];
+      el.textContent = lines.slice(0, li).join('\n') + (li ? '\n' : '') + line.slice(0, ci);
+      if (ci < line.length) { ci++; timer = setTimeout(step, 26); }
+      else { li++; ci = 0; timer = setTimeout(step, 280); }
+    }
+    step();
+  }
+
+  // ---------- Contact form (bot-proofed) ----------
+  // Defense in depth against automated spam, matching the pattern used by
+  // zoigram/eva's own contact form: an off-screen honeypot field a real
+  // visitor never sees or fills, plus a submit-time trap (a script that
+  // fills and posts the form in milliseconds can't fake the time a human
+  // needs to read it). The server (api/main.py) re-checks both — client
+  // checks alone are trivial to bypass.
+  function initContactForm() {
+    const form = document.getElementById('contact-form');
+    if (!form) return;
+
+    const tsField = form.querySelector('#ct-ts');
+    if (tsField) tsField.value = String(Date.now());
+
+    const statusEl   = document.getElementById('contact-status');
+    const responseEl = document.getElementById('contact-response');
+    const submitBtn  = document.getElementById('contact-submit');
+    const RE_EMAIL   = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+    function setStatus(kind, dictKey) {
+      const dict = S[getLang()];
+      const text = dict[dictKey] || dictKey;
+      if (statusEl) {
+        statusEl.textContent = kind === 'ok' ? dict.contact_status_ok
+          : kind === 'sending' ? dict.contact_status_sending
+          : kind === 'err' ? dict.contact_status_err
+          : dict.contact_status_idle;
+        statusEl.className = 'curl-status' + (kind ? ' ' + kind : '');
+      }
+      if (responseEl) {
+        responseEl.hidden = !(kind === 'ok' || kind === 'err');
+        responseEl.textContent = (kind === 'ok' || kind === 'err') ? text : '';
+        responseEl.className = 'curl-response' + (kind ? ' ' + kind : '');
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nombre  = form.querySelector('#ct-nombre').value.trim();
+      const email   = form.querySelector('#ct-email').value.trim();
+      const mensaje = form.querySelector('#ct-mensaje').value.trim();
+      const asunto_web = form.querySelector('#ct-hp').value;
+      const ts = Number(tsField ? tsField.value : Date.now());
+
+      if (!nombre || !mensaje || !RE_EMAIL.test(email)) {
+        setStatus('err', 'contact_msg_err_fields');
+        return;
+      }
+
+      setStatus('sending', 'contact_status_sending');
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const res = await fetch('/api/contacto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre, email, mensaje, asunto_web, ts }),
+        });
+        if (res.status === 429) { setStatus('err', 'contact_msg_err_rate'); return; }
+        if (!res.ok) { setStatus('err', 'contact_msg_err_generic'); return; }
+        setStatus('ok', 'contact_msg_ok');
+        form.reset();
+        if (tsField) tsField.value = String(Date.now());
+      } catch (err) {
+        setStatus('err', 'contact_msg_err_generic');
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
   }
 
   // ---------- Auth (Pangolin) ----------
@@ -406,7 +600,10 @@
     }
   }
 
-  function init() { applyLang(); initScroll(); bind(); renderServices(); }
+  function init() {
+    applyLang(); initScroll(); bind(); renderServices();
+    initBgCanvas(); initHeroTyper(); initContactForm();
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

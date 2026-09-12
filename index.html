@@ -67,6 +67,36 @@
       mask-image: radial-gradient(ellipse at 50% 30%, rgba(0,0,0,0.4), transparent 80%);
       -webkit-mask-image: radial-gradient(ellipse at 50% 30%, rgba(0,0,0,0.4), transparent 80%);
     }
+
+    /* Ambient backdrop: slow-drifting glow blobs + a particle-network
+       canvas (drawn by zoi.js), both fixed behind all content. */
+    .zoi-glow {
+      position: fixed; z-index: 0; pointer-events: none;
+      border-radius: 50%; filter: blur(90px); opacity: 0.4;
+      mix-blend-mode: screen;
+      animation: zoiGlowFloat 24s ease-in-out infinite;
+    }
+    .zoi-glow--a {
+      width: 520px; height: 520px; left: -140px; top: -120px;
+      background: radial-gradient(circle, rgba(0,255,136,0.55), transparent 70%);
+    }
+    .zoi-glow--b {
+      width: 620px; height: 620px; right: -180px; bottom: -160px;
+      background: radial-gradient(circle, rgba(91,242,189,0.4), transparent 70%);
+      animation-delay: -12s;
+    }
+    @keyframes zoiGlowFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50%      { transform: translate(30px, -24px) scale(1.08); }
+    }
+    #zoi-bg {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      opacity: 0.6;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .zoi-glow { animation: none; }
+    }
+
     a { color: inherit; text-decoration: none; }
     button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 
@@ -310,6 +340,49 @@
       content: '●'; margin-right: 6px; animation: blink 1.6s ease-in-out infinite;
     }
 
+    /* Floating "live" terminal — decorative, typed by zoi.js. Only shown
+       on generously wide viewports so it never collides with hero copy. */
+    .hero-term {
+      position: absolute; z-index: 2;
+      right: var(--pad); top: 50%; transform: translateY(-50%);
+      width: 360px;
+      background: rgba(15,18,17,0.72);
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.55), 0 0 40px rgba(0,255,136,0.07);
+      overflow: hidden;
+    }
+    .hero-term__head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 12px;
+      background: var(--bg-3);
+      border-bottom: 1px solid var(--line);
+      font-family: var(--mono); font-size: 11px; color: var(--comment);
+    }
+    .hero-term__head .dots span {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 4px;
+      background: var(--bg-3); border: 1px solid var(--line-2);
+    }
+    .hero-term__head .dots span:nth-child(1) { background: #ff5f56; }
+    .hero-term__head .dots span:nth-child(2) { background: #ffbd2e; }
+    .hero-term__head .dots span:nth-child(3) { background: var(--accent); }
+    .hero-term__body {
+      margin: 0; padding: 16px 18px 20px;
+      font-family: var(--mono); font-size: 12.5px; line-height: 1.85;
+      color: var(--text-dim); min-height: 150px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .hero-term__caret {
+      display: inline-block; width: 6px; height: 12px;
+      background: var(--accent); margin-left: 1px;
+      animation: blink 1s steps(2, end) infinite;
+      vertical-align: -2px;
+    }
+    @media (max-width: 1380px) { .hero-term { display: none; } }
+
     /* ============================================================
        Sections
        ============================================================ */
@@ -496,10 +569,66 @@
     .curl-body .com { color: var(--comment); }
     .curl-body p { margin: 0; }
     .curl-cta {
-      display: flex; gap: 10px;
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
       padding: 14px 20px;
       background: var(--bg-2);
       border-top: 1px solid var(--line);
+    }
+    .curl-cta .btn.ghost {
+      font-size: 12px; color: var(--text-dim); border-color: var(--line);
+      padding: 12px 14px;
+    }
+
+    /* Contact form: real inputs disguised as the curl payload's string
+       values, so the "request" you're reading is the one that gets sent. */
+    .curl-field { position: relative; }
+    .curl-field input, .curl-field textarea {
+      background: transparent;
+      border: none;
+      border-bottom: 1px dashed var(--line-2);
+      color: var(--accent-2);
+      font: inherit;
+      padding: 1px 2px;
+      outline: none;
+      border-radius: 2px;
+      transition: background .15s var(--ease), border-color .15s var(--ease);
+    }
+    .curl-field input { width: 220px; max-width: 50vw; }
+    .curl-field input::placeholder, .curl-field textarea::placeholder { color: var(--text-mute); }
+    .curl-field input:focus, .curl-field textarea:focus {
+      border-bottom-color: var(--accent);
+      background: rgba(0,255,136,0.06);
+    }
+    .curl-textarea {
+      display: block; width: 100%; box-sizing: border-box;
+      background: rgba(0,255,136,0.03);
+      border: none; border-bottom: 1px dashed var(--line-2);
+      color: var(--accent-2);
+      font: inherit; font-size: 13px;
+      padding: 6px 8px; margin: 2px 0 8px;
+      outline: none; border-radius: 2px;
+      resize: vertical; min-height: 48px; max-height: 220px;
+      line-height: 1.7;
+      transition: background .15s var(--ease), border-color .15s var(--ease);
+    }
+    .curl-textarea::placeholder { color: var(--text-mute); }
+    .curl-textarea:focus { border-bottom-color: var(--accent); background: rgba(0,255,136,0.07); }
+    .curl-status { transition: color .2s var(--ease); }
+    .curl-status.sending { color: var(--string); }
+    .curl-status.ok { color: var(--accent); }
+    .curl-status.err { color: var(--punct); }
+    .curl-response {
+      margin: 10px 0 0; font-size: 12.5px; line-height: 1.6;
+    }
+    .curl-response.ok  { color: var(--accent); }
+    .curl-response.err { color: var(--punct); }
+    .curl-cta button.btn[disabled] { opacity: 0.5; pointer-events: none; }
+
+    /* Honeypot — real visitors never see, focus, or fill this. Off-screen
+       rather than display:none, which some scrapers special-case. */
+    .hp-field {
+      position: absolute; left: -9999px; top: auto;
+      width: 1px; height: 1px; overflow: hidden; opacity: 0;
     }
 
     /* ============================================================
@@ -738,12 +867,19 @@
       .contact-grid { grid-template-columns: 1fr; gap: 32px; }
       .codeblock { padding: 32px 20px; }
       .zoi-svc-grid { grid-template-columns: 1fr; }
+      .curl-field input { width: 100%; max-width: none; display: block; margin-top: 2px; }
     }
 
     ::selection { background: var(--accent); color: var(--bg); }
   </style>
 </head>
 <body>
+
+  <!-- Ambient tech backdrop: soft glow blobs + a drifting particle-network
+       canvas, all behind the grid texture from body::before and content. -->
+  <div class="zoi-glow zoi-glow--a" aria-hidden="true"></div>
+  <div class="zoi-glow zoi-glow--b" aria-hidden="true"></div>
+  <canvas id="zoi-bg" aria-hidden="true"></canvas>
 
   <!-- ============ TOP BAR ============ -->
   <header class="topbar">
@@ -804,6 +940,14 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <div class="hero-term" aria-hidden="true">
+          <div class="hero-term__head">
+            <span class="dots"><span></span><span></span><span></span></span>
+            <span>zsh</span>
+          </div>
+          <pre class="hero-term__body"><code id="hero-typer"></code><span class="hero-term__caret"></span></pre>
         </div>
       </div>
     </section>
@@ -934,25 +1078,43 @@
             </h2>
             <p class="contact-sub" data-i18n="contact_sub">Si tu correo describe un problema concreto, te respondo. Casi siempre el mismo día.</p>
           </div>
-          <div class="curl-card" data-anim>
+          <form class="curl-card contacto-form" id="contact-form" data-anim novalidate>
             <div class="curl-head">
-              <span>POST /hello</span>
-              <span>200 OK</span>
+              <span>POST /api/contacto</span>
+              <span class="curl-status" id="contact-status" data-i18n="contact_status_idle">listo</span>
             </div>
             <div class="curl-body">
-              <p><span class="cmd">curl</span> <span class="flag">-X</span> <span class="str">POST</span> <span class="str">"https://zoidev.com/hello"</span> \</p>
-              <p>&nbsp;&nbsp;<span class="flag">-H</span> <span class="str">"From: pablonie@gmail.com"</span> \</p>
+              <p><span class="cmd">curl</span> <span class="flag">-X</span> <span class="str">POST</span> <span class="str">"https://zoidev.com/api/contacto"</span> \</p>
+              <p>&nbsp;&nbsp;<span class="flag">-H</span> <span class="str">"Content-Type: application/json"</span> \</p>
               <p>&nbsp;&nbsp;<span class="flag">-d</span> <span class="str">'&#123;</span></p>
-              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="val">"Pablo Nieto"</span>,</p>
-              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"role"</span>: <span class="val">"dev &amp; reverse engineering"</span>,</p>
-              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"base"</span>: <span class="val">"Madrid, ES"</span>,</p>
-              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"reply"</span>: <span class="val">"&lt;= 24h"</span></p>
+              <p class="curl-field">
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"nombre"</span>: <span class="val">"<input type="text" id="ct-nombre" name="nombre" required maxlength="120" autocomplete="name" data-i18n-attr="placeholder:contact_ph_name" placeholder="Tu nombre">"</span>,
+              </p>
+              <p class="curl-field">
+                &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"email"</span>: <span class="val">"<input type="email" id="ct-email" name="email" required maxlength="200" autocomplete="email" data-i18n-attr="placeholder:contact_ph_email" placeholder="tu@correo.com">"</span>,
+              </p>
+              <p>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"mensaje"</span>: <span class="val">"</span></p>
+              <textarea class="curl-textarea" id="ct-mensaje" name="mensaje" required maxlength="2000" rows="3" data-i18n-attr="placeholder:contact_ph_msg" placeholder="Cuéntame qué necesitas"></textarea>
+              <p><span class="val">"</span></p>
               <p>&nbsp;&nbsp;<span class="str">&#125;'</span></p>
+              <p class="curl-response" id="contact-response" hidden></p>
             </div>
+
+            <!-- Honeypot: off-screen, never focusable or visible to a real
+                 visitor. A scripted bot that blindly fills every input on
+                 the page fills this too — the backend then silently
+                 pretends the send worked without mailing anything. -->
+            <label class="hp-field" aria-hidden="true">
+              No rellenar este campo
+              <input type="text" id="ct-hp" name="asunto_web" tabindex="-1" autocomplete="off">
+            </label>
+            <input type="hidden" id="ct-ts" name="ts">
+
             <div class="curl-cta">
-              <a class="btn primary" href="mailto:pablonie@gmail.com?subject=Proyecto%20zoidev" data-i18n="contact_cta">Escribir un email →</a>
+              <button type="submit" class="btn primary" id="contact-submit" data-i18n="contact_cta">Enviar mensaje →</button>
+              <a class="btn ghost" href="mailto:contacto@zoidev.com?subject=Proyecto%20zoidev" data-i18n="contact_cta_mail">o email directo</a>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     </section>
@@ -961,7 +1123,7 @@
 
   <footer>
     <span><span class="prompt">$</span><span data-i18n="footer_left">© 2026 zoidev · cero overhead</span></span>
-    <a href="mailto:pablonie@gmail.com" data-i18n="footer_right">pablonie@gmail.com</a>
+    <a href="mailto:contacto@zoidev.com" data-i18n="footer_right">contacto@zoidev.com</a>
   </footer>
 
   <!-- ============ LOGIN MODAL ============ -->

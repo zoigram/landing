@@ -1,8 +1,12 @@
-# docker-compose for the VPS. Builds the image straight from GitHub —
-# no /opt/zoidev mounts, no node, no .env. To update after a push:
+# docker-compose for the VPS. Builds both images straight from GitHub —
+# no /opt/zoidev mounts, no node, no .env in the images. To update after a push:
 #
 #   docker compose -f /opt/zoidev/docker-compose.yml build --no-cache
 #   docker compose -f /opt/zoidev/docker-compose.yml up -d
+#
+# Contact form (see api/main.py): set RESEND_API_KEY / RESEND_FROM in the
+# shell (or a .env next to this file) before `up`, e.g.
+#   RESEND_API_KEY=re_xxx RESEND_FROM="zoidev <noreply@notifications.zoidev.com>"
 
 version: "3.8"
 
@@ -13,10 +17,31 @@ services:
     image: zoidev-landing:latest
     container_name: zoidev-app
     restart: always
+    depends_on:
+      - zoidev-contact
     # Pangolin's reverse proxy reaches us by container name on this network.
     # Configure the resource in Pangolin to point at  http://zoidev-app:80
+    # nginx also needs `default` to resolve zoidev-contact for /api/ (see nginx.conf).
     networks:
       - pangolin
+      - default
+
+  zoidev-contact:
+    build:
+      context: https://github.com/zoigram/landing.git#main
+      dockerfile: api/Dockerfile
+    image: zoidev-contact-api:latest
+    container_name: zoidev-contact
+    restart: always
+    environment:
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-zoidev <noreply@notifications.zoidev.com>}
+      CONTACT_TO: ${CONTACT_TO:-contacto@zoidev.com}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://zoidev.com}
+    # Only reached internally by nginx (see nginx.conf) — never joins
+    # `pangolin`, so it's not reachable from outside this compose stack.
+    networks:
+      - default
 
 networks:
   pangolin:
