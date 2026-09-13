@@ -522,6 +522,52 @@
     .stack-tag .role { color: var(--comment); font-size: 11px; }
 
     /* ============================================================
+       Products — apps built by zoidev, same card language as .step
+       ============================================================ */
+    .product-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 56px;
+    }
+    .product-card {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px 26px 26px;
+      transition: border-color .2s var(--ease), transform .2s var(--ease);
+    }
+    .product-card:hover { border-color: var(--line-2); transform: translateY(-2px); }
+    .product-card--soon { opacity: 0.72; }
+    .product-card--soon:hover { transform: none; }
+    .product-head {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .product-badge {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 3px;
+      border: 1px solid var(--line-2);
+    }
+    .product-badge--live { color: var(--accent); border-color: rgba(0,255,136,0.4); }
+    .product-badge--live::before { content: '● '; }
+    .product-badge--soon { color: var(--text-mute); }
+    .product-name {
+      font-family: var(--sans); font-size: 20px; font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .product-desc {
+      font-family: var(--mono); font-size: 13px; color: var(--text-dim);
+      line-height: 1.7; margin: 0 0 14px;
+    }
+    .product-link {
+      font-family: var(--mono); font-size: 12.5px; color: var(--accent);
+      border-bottom: 1px dashed var(--line-2);
+      padding-bottom: 1px;
+    }
+    .product-link:hover { border-bottom-color: var(--accent); }
+
+    /* ============================================================
        Contact — looks like a curl command
        ============================================================ */
     .contact-grid {
@@ -864,6 +910,7 @@
       .svc-tag { grid-column: 2; text-align: left; padding-top: 0; }
       .svc:hover { padding-left: 0; padding-right: 0; }
       .process-grid { grid-template-columns: 1fr; }
+      .product-grid { grid-template-columns: 1fr; }
       .contact-grid { grid-template-columns: 1fr; gap: 32px; }
       .codeblock { padding: 32px 20px; }
       .zoi-svc-grid { grid-template-columns: 1fr; }
@@ -891,6 +938,7 @@
       <a href="#services" data-nav-close data-i18n="nav_services">Servicios</a>
       <a href="#process" data-nav-close data-i18n="nav_process">Proceso</a>
       <a href="#stack" data-nav-close data-i18n="nav_stack">Stack</a>
+      <a href="#products" data-nav-close data-i18n="nav_products">Productos</a>
       <a href="#contact" data-nav-close data-i18n="nav_contact">Contacto</a>
     </nav>
     <div class="topbar-right">
@@ -1067,10 +1115,39 @@
       </div>
     </section>
 
-    <!-- ============ CONTACT ============ -->
-    <section id="contact" data-screen-label="05 Contacto">
+    <!-- ============ PRODUCTS ============ -->
+    <section id="products" data-screen-label="05 Productos">
       <div class="wrap">
-        <div class="eyebrow" data-i18n="contact_eyebrow">05 · contacto</div>
+        <div class="codeblock" data-file="// products.ts" data-stat="● 2 exports">
+          <div class="eyebrow" data-i18n="products_eyebrow">05 · productos</div>
+          <h2 class="section-title" data-anim><span data-i18n="products_title">Cosas que ya uso yo mismo</span></h2>
+          <p class="section-sub" data-anim data-i18n="products_sub">Apps propias, construidas con el mismo criterio: ni una línea de más.</p>
+
+          <div class="product-grid" data-anim data-stagger="0.08">
+            <article class="product-card">
+              <div class="product-head">
+                <span class="product-badge product-badge--live" data-i18n="prod_badge_live">live</span>
+                <span class="product-name">EVA PRO</span>
+              </div>
+              <p class="product-desc" data-i18n="prod_eva_d">Sincroniza el portal escolar de tus hijos y avisa al instante de notas, tareas y comunicados. En producción, usándola yo mismo cada día.</p>
+              <a class="product-link" href="https://eva.zoidev.com" target="_blank" rel="noopener" data-i18n="prod_eva_cta">eva.zoidev.com →</a>
+            </article>
+            <article class="product-card product-card--soon">
+              <div class="product-head">
+                <span class="product-badge product-badge--soon" data-i18n="prod_badge_soon">soon</span>
+                <span class="product-name">NOMILIST</span>
+              </div>
+              <p class="product-desc" data-i18n="prod_nomilist_d">Todas tus finanzas unificadas en la palma de tu mano. Próximamente.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CONTACT ============ -->
+    <section id="contact" data-screen-label="06 Contacto">
+      <div class="wrap">
+        <div class="eyebrow" data-i18n="contact_eyebrow">06 · contacto</div>
         <div class="contact-grid">
           <div data-anim>
             <h2>
