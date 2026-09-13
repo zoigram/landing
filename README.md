@@ -8,15 +8,17 @@ backend propio.
 
 ```
 .
-├── index.html        ← landing
-├── shared/zoi.js     ← i18n + scroll + fondo animado + login flow + form de contacto
-├── api/               ← microservicio de contacto (FastAPI + Resend)
+├── index.html                    ← landing
+├── shared/zoi.js                 ← i18n + scroll + fondo animado + login flow + form de contacto
+├── api/                          ← microservicio de contacto (FastAPI + Resend)
 │   ├── main.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── Dockerfile        ← imagen nginx mínima (solo estáticos)
-├── docker-compose.yml← stack para el VPS (nginx + api de contacto)
-├── nginx.conf        ← gzip, cache, headers, proxy /api/ → contact-api
+├── Dockerfile                    ← imagen nginx mínima (solo estáticos)
+├── docker-compose.yml            ← stack para Portainer/VPS: pull de GHCR, sin build
+├── docker-compose.override.yml   ← solo desarrollo local: sí construye desde el repo
+├── .github/workflows/docker-build.yml ← build + push a GHCR + aviso a Portainer
+├── nginx.conf                    ← gzip, cache, headers, proxy /api/ → contact-api
 └── README.md
 ```
 
@@ -64,8 +66,10 @@ sí solos son triviales de saltarse):
   en silencio igual que el honeypot.
 - **Rate limit** por IP en el propio microservicio (5 envíos / 10 min).
 
-Variables de entorno del servicio `zoidev-contact` (ponlas en el shell o
-en un `.env` junto a `docker-compose.yml` antes de `up`):
+Variables de entorno del servicio `zoidev-contact` — como **variables de
+entorno del stack en Portainer** (Stacks → landing → Editor → Environment
+variables), o en un `.env` junto a `docker-compose.yml` si usas
+`docker compose` a pelo:
 
 ```bash
 RESEND_API_KEY=re_xxxxxxxx                              # tu API key de resend.com
@@ -78,41 +82,54 @@ Si `RESEND_API_KEY`/`RESEND_FROM` no están configuradas, el endpoint
 sigue respondiendo "OK" (el panel nunca se ve roto) pero no manda nada
 de verdad — se avisa por log del contenedor.
 
-## Cómo desplegar
+## Cómo desplegar (Portainer + GHCR, con auto-deploy)
 
-En tu VPS, sustituye tu stack actual por este:
+`docker-compose.yml` ya **no construye nada** — solo hace `pull` de dos
+imágenes publicadas en GHCR (`ghcr.io/zoigram/landing` y
+`ghcr.io/zoigram/landing-contact`). Quien las construye y publica es
+`.github/workflows/docker-build.yml`, en cada push a `main` — mismo
+patrón que ya usa `zoigram/eva`. Eso hace que un simple `pull` + `up -d`
+sea siempre suficiente para actualizar: nada de `--no-cache`, nada de
+clonar el repo en el VPS.
+
+**1. Stack en Portainer, apuntando al repo:**
+
+- Stacks → Add stack → *Build method*: **Repository**.
+- Repository URL: `https://github.com/zoigram/landing.git`, reference `refs/heads/main`, Compose path: `docker-compose.yml`.
+- En *Environment variables* añade `RESEND_API_KEY` y `RESEND_FROM` (ver arriba).
+- Si el paquete en GHCR es privado, añade las credenciales del registry en Portainer (Registries → Add registry → GHCR) antes de desplegar.
+
+**2. Webhook de redeploy:**
+
+- En el propio stack, activa **Webhook** — Portainer te da una URL única (`https://portainer.zoidev.com/api/stacks/webhooks/...`).
+- En GitHub: repo → Settings → Secrets and variables → Actions → New repository secret → `PORTAINER_WEBHOOK_URL` con esa URL.
+- Listo: cada push a `main` construye ambas imágenes, las publica en GHCR y el último paso del workflow llama a ese webhook — Portainer hace `pull` + redeploy solo. Sin el secret configurado, el build/push sigue funcionando igual; ese último paso simplemente se salta.
+
+Lo que cambia respecto al stack viejo (Node + volúmenes en `/opt/zoidev`):
+
+- **No hay volúmenes locales** (`app.js`, `package.json`, `html/`, `.env` sueltos) — todo vive en GitHub/GHCR.
+- **No hay Node** — nginx sirve estáticos directamente.
+- Sigues conectándote a la red externa `pangolin` por nombre de contenedor (`zoidev-app:80`). Tu resource de Pangolin sigue apuntando ahí, sin cambios.
+
+### Sin Portainer (docker compose a pelo)
 
 ```bash
 mkdir -p /opt/zoidev && cd /opt/zoidev
 curl -fsSL https://raw.githubusercontent.com/zoigram/landing/main/docker-compose.yml -o docker-compose.yml
 
-export RESEND_API_KEY=re_xxxxxxxx   # ver sección "Panel de contacto" arriba
-export RESEND_FROM="zoidev <noreply@notifications.zoidev.com>"
+cat > .env <<'EOF'
+RESEND_API_KEY=re_xxxxxxxx
+RESEND_FROM=zoidev <noreply@notifications.zoidev.com>
+EOF
 
-docker compose down                 # baja el stack viejo si seguía corriendo
-docker compose build --no-cache     # clona el repo y construye las dos imágenes
-docker compose up -d                # arranca nginx + el microservicio de contacto
+docker compose up -d   # solo pull + arranque, no build
 ```
 
-Lo que cambia respecto a tu stack viejo:
-
-- **No hay volúmenes locales** (`/opt/zoidev/app.js`, `package.json`, `html/`, `.env`) — el contenido vive en GitHub.
-- **No hay Node** — nginx sirve estáticos directamente.
-- Sigues conectándote a la red externa `pangolin` por nombre de contenedor (`zoidev-app:80`). Tu resource de Pangolin sigue apuntando ahí, sin cambios.
-
-## Cómo actualizar tras un commit
-
-```bash
-cd /opt/zoidev
-docker compose build --no-cache && docker compose up -d
-```
-
-(Opcional) Webhook de GitHub → un mini script en el VPS que ejecute lo de
-arriba. O un cron `*/15 * * * *` que haga lo mismo si quieres "auto-pull".
+Para actualizar tras un push (sin webhook): `docker compose pull && docker compose up -d`.
 
 ## Desarrollo local
 
-Cualquier servidor estático sirve:
+Para solo mirar el HTML/CSS, cualquier servidor estático sirve:
 
 ```bash
 python3 -m http.server 8080
@@ -122,12 +139,16 @@ npx serve .
 
 Abre `http://localhost:8080`. El login está en `demoMode` automáticamente
 fuera de `zoidev.com`, así que el botón abre el dashboard sin redirigir.
-
 El panel de contacto llama a `/api/contacto` con rutas relativas, así que
-en local solo funciona detrás de un proxy que sirva ambos (o con
-`docker compose up`, que sí levanta nginx + la API juntos). Sirviendo
-`index.html` suelto con `python3 -m http.server` el fetch dará 404 —
-esperable, no es un bug: prueba visual de la landing sin enviar de verdad.
+sirviendo el HTML suelto el fetch dará 404 — esperable, no es un bug.
+
+Para probar el envío real de principio a fin, levanta nginx + la API
+juntos — `docker-compose.override.yml` hace que esto construya desde tu
+copia local en vez de tirar de GHCR:
+
+```bash
+docker compose up --build
+```
 
 ## Idiomas
 

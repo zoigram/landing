@@ -1,20 +1,19 @@
-# docker-compose for the VPS. Builds both images straight from GitHub —
-# no /opt/zoidev mounts, no node, no .env in the images. To update after a push:
+# docker-compose for the VPS / Portainer. Pulls prebuilt images from GHCR —
+# .github/workflows/docker-build.yml builds + pushes both images on every
+# push to main, then pings Portainer's stack webhook so it pulls and
+# redeploys automatically. No git clone, no local build here, so a plain
+# `up -d` is always enough (no --no-cache rebuild dance).
 #
-#   docker compose -f /opt/zoidev/docker-compose.yml build --no-cache
-#   docker compose -f /opt/zoidev/docker-compose.yml up -d
+# For local development instead, see docker-compose.override.yml.
 #
-# Contact form (see api/main.py): set RESEND_API_KEY / RESEND_FROM in the
-# shell (or a .env next to this file) before `up`, e.g.
-#   RESEND_API_KEY=re_xxx RESEND_FROM="zoidev <noreply@notifications.zoidev.com>"
-
-version: "3.8"
+# Contact form (see api/main.py): set RESEND_API_KEY / RESEND_FROM — as
+# stack environment variables in Portainer, or in a .env next to this file
+# for plain `docker compose`.
 
 services:
   zoidev-app:
-    build:
-      context: https://github.com/zoigram/landing.git#main
-    image: zoidev-landing:latest
+    image: ghcr.io/zoigram/landing:latest
+    pull_policy: always
     container_name: zoidev-app
     restart: always
     depends_on:
@@ -27,10 +26,8 @@ services:
       - default
 
   zoidev-contact:
-    build:
-      context: https://github.com/zoigram/landing.git#main
-      dockerfile: api/Dockerfile
-    image: zoidev-contact-api:latest
+    image: ghcr.io/zoigram/landing-contact:latest
+    pull_policy: always
     container_name: zoidev-contact
     restart: always
     environment:

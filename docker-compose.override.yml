@@ -1,0 +1,17 @@
+# Solo para desarrollo local: Docker Compose fusiona este archivo con
+# docker-compose.yml automáticamente (sin flags extra) cuando ejecutas
+# `docker compose build`/`up` en tu PC, y reconstruye las imágenes en vez
+# de descargarlas de GHCR. Portainer no usa este archivo (solo lee
+# docker-compose.yml), así que no afecta al despliegue en el VPS.
+
+services:
+  zoidev-app:
+    build:
+      context: .
+    pull_policy: never
+
+  zoidev-contact:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    pull_policy: never
